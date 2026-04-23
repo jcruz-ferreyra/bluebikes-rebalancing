@@ -1,0 +1,12 @@
+# tasks/prepare_network/config.yaml
+
+# Depot location (not in stations file)
+# Format: [latitude, longitude]
+depot_lat_lon: [42.338629, -71.106500]
+
+# Network bounding box for OSM download
+# Format: [west, south, east, north] in EPSG:4326
+network_bbox: [-71.117, 42.329, -71.078, 42.353]
+
+# Output storage location
+output_storage: "local"  # "local" or "drive"
