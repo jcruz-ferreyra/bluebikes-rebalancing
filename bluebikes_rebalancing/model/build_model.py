@@ -1,6 +1,5 @@
 # bluebikes_rebalancing/model/build_model.py
 
-import constraints as const
 from pyomo.environ import (
     Binary,
     ConcreteModel,
@@ -13,6 +12,8 @@ from pyomo.environ import (
     Var,
     minimize,
 )
+
+import bluebikes_rebalancing.model.constraints as const
 
 
 def objective_rule(m):
