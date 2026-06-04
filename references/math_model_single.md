@@ -118,13 +118,16 @@ $$b_i^F = b_i + v_i - u_i \quad \forall i \in \{0, 1,\ldots,N+1\}$$
 
 **4. Vehicle Load Tracking**
 
-$$w_j \geq w_i - v_j + u_j - M(1 - x_{i,j}) \quad \forall i,j \in \{0,\ldots,N+1\}, i \neq j$$
+$$w_j \geq w_i - v_j + u_j - M^{\text{low}}_j (1 - x_{i,j}) \quad \forall i,j \in \{0,\ldots,N+1\}, i \neq j$$
 
-$$w_j \leq w_i - v_j + u_j + M(1 - x_{i,j}) \quad \forall i,j \in \{0,\ldots,N+1\}, i \neq j$$
+$$w_j \leq w_i - v_j + u_j + M^{\text{up}}_j (1 - x_{i,j}) \quad \forall i,j \in \{0,\ldots,N+1\}, i \neq j$$
 
 $$w_0 = u_0 \qquad w_{N+1} = 0$$
 
-*$M = Q + \max_i\, b_i$ is a tightened big-M. When $x_{i,j} = 1$ the constraints enforce exact load tracking; when $x_{i,j} = 0$ they are inactive.*
+*Node indexed big M, sized separately per side:*
+$$M^{\text{low}}_j = Q + b_j \qquad M^{\text{up}}_j = Q + (c_j - b_j)$$
+
+*When $x_{i,j} = 1$ the pair collapses to $w_j = w_i - v_j + u_j$, enforcing exact load tracking. When $x_{i,j} = 0$ each inequality goes vacuous. The two sides have different worst cases: the lower constraint must cover the expression running high through pickups at $j$ (bounded by $Q + b_j$), the upper must cover it running low through dropoffs at $j$ (bounded by $Q + (c_j - b_j)$). Sizing each to its own bound keeps the relaxation as tight as possible. The formula holds for the depots too: at $N+1$ it gives $M^{\text{low}} = Q$, $M^{\text{up}} = 2Q$, with no special casing.*
 
 **5. Operational Bounds**
 

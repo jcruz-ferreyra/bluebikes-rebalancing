@@ -49,11 +49,11 @@ def inventory_balance_rule(m, i):
 
 # --- Vehicle Load Tracking ---
 def load_lower_rule(m, i, j):
-    return m.w[j] >= m.w[i] - m.v[j] + m.u[j] - m.M * (1 - m.x[i, j])
+    return m.w[j] >= m.w[i] - m.v[j] + m.u[j] - m.M_low[j] * (1 - m.x[i, j])
 
 
 def load_upper_rule(m, i, j):
-    return m.w[j] <= m.w[i] - m.v[j] + m.u[j] + m.M * (1 - m.x[i, j])
+    return m.w[j] <= m.w[i] - m.v[j] + m.u[j] + m.M_up[j] * (1 - m.x[i, j])
 
 
 def initial_load_rule(m):

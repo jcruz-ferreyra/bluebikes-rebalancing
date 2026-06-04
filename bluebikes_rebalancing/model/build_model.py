@@ -1,5 +1,6 @@
 # bluebikes_rebalancing/model/build_model.py
 
+import constraints as const
 from pyomo.environ import (
     Binary,
     ConcreteModel,
@@ -12,8 +13,6 @@ from pyomo.environ import (
     Var,
     minimize,
 )
-
-from .constraints import *
 
 
 def objective_rule(m):
@@ -73,7 +72,8 @@ def build_vrp_model(
         Fully constructed and constrained Pyomo model, ready to be passed to a solver.
     """
     N = len(stations)
-    M = Q + max(b.values())
+    M_low = {i: Q + b[i] for i in nodes}
+    M_up = {i: Q + (c[i] - b[i]) for i in nodes}
 
     # --- Model ---
     model = ConcreteModel(name="Bluebikes_VRP")
@@ -91,7 +91,8 @@ def build_vrp_model(
     model.beta = Param(initialize=BETA)
     model.s = Param(initialize=SERVICE_TIME)
     model.tau = Param(initialize=TIME_PER_BIKE)
-    model.M = Param(initialize=M)
+    model.M_low = Param(model.NODES, initialize=M_low)
+    model.M_up = Param(model.NODES, initialize=M_up)
     model.b = Param(model.NODES, initialize=b)
     model.c = Param(model.NODES, initialize=c)
     model.t = Param(model.STATIONS, initialize=t)
@@ -116,32 +117,32 @@ def build_vrp_model(
 
     # --- Constraints ---
     # Route Structure
-    model.leave_depot = Constraint(rule=leave_depot_rule)
-    model.enter_depot = Constraint(rule=enter_depot_rule)
-    model.no_return_start = Constraint(model.ARCS, rule=no_return_start_rule)
-    model.no_depart_end = Constraint(model.ARCS, rule=no_depart_end_rule)
-    model.flow_conservation = Constraint(model.STATIONS, rule=flow_conservation_rule)
-    model.visit_once = Constraint(model.STATIONS, rule=visit_once_rule)
+    model.leave_depot = Constraint(rule=const.leave_depot_rule)
+    model.enter_depot = Constraint(rule=const.enter_depot_rule)
+    model.no_return_start = Constraint(model.ARCS, rule=const.no_return_start_rule)
+    model.no_depart_end = Constraint(model.ARCS, rule=const.no_depart_end_rule)
+    model.flow_conservation = Constraint(model.STATIONS, rule=const.flow_conservation_rule)
+    model.visit_once = Constraint(model.STATIONS, rule=const.visit_once_rule)
 
     # MTZ Subtour Elimination
-    model.mtz = Constraint(model.ARCS, rule=mtz_rule)
+    model.mtz = Constraint(model.ARCS, rule=const.mtz_rule)
 
     # Inventory Balance
-    model.inventory_balance = Constraint(model.NODES, rule=inventory_balance_rule)
+    model.inventory_balance = Constraint(model.NODES, rule=const.inventory_balance_rule)
 
     # Vehicle Load Tracking
-    model.load_lower = Constraint(model.ARCS, rule=load_lower_rule)
-    model.load_upper = Constraint(model.ARCS, rule=load_upper_rule)
-    model.initial_load = Constraint(rule=initial_load_rule)
-    model.final_load = Constraint(rule=final_load_rule)
+    model.load_lower = Constraint(model.ARCS, rule=const.load_lower_rule)
+    model.load_upper = Constraint(model.ARCS, rule=const.load_upper_rule)
+    model.initial_load = Constraint(rule=const.initial_load_rule)
+    model.final_load = Constraint(rule=const.final_load_rule)
 
     # Operational Bounds
-    model.buffer_lower = Constraint(model.STATIONS, rule=buffer_lower_rule)
-    model.buffer_upper = Constraint(model.STATIONS, rule=buffer_upper_rule)
-    model.pickup_visit = Constraint(model.NODES, rule=pickup_visit_rule)
-    model.delivery_visit = Constraint(model.NODES, rule=delivery_visit_rule)
+    model.buffer_lower = Constraint(model.STATIONS, rule=const.buffer_lower_rule)
+    model.buffer_upper = Constraint(model.STATIONS, rule=const.buffer_upper_rule)
+    model.pickup_visit = Constraint(model.NODES, rule=const.pickup_visit_rule)
+    model.delivery_visit = Constraint(model.NODES, rule=const.delivery_visit_rule)
 
     # Time Budget
-    model.time_budget = Constraint(rule=time_budget_rule)
+    model.time_budget = Constraint(rule=const.time_budget_rule)
 
     return model

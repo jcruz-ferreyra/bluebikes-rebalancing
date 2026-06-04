@@ -279,7 +279,8 @@ def _save_parameters(model, ctx: RunOptimizationContext) -> None:
         "solver_threads": ctx.solver_params["threads"],
         "num_stations": len(model.STATIONS),
         "num_nodes": len(model.NODES),
-        "big_M": value(model.M),
+        "M_low": {i: value(model.M_low[i]) for i in model.NODES},
+        "M_up": {i: value(model.M_up[i]) for i in model.NODES},
     }
 
     with open(ctx.results_dir / "parameters.json", "w") as f:
@@ -581,6 +582,9 @@ def run_optimization(ctx: RunOptimizationContext) -> None:
 
     # Build optimization model
     model = _build_model(stations_df, network_df, ctx)
+
+    model.M_low.pprint()
+    model.M_up.pprint()
 
     # Solve model
     result = _solve_model(model, ctx)
