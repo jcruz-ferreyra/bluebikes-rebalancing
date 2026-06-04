@@ -58,6 +58,11 @@ $b_i^F \in \mathbb{Z}_+$, $\quad 0 \leq b_i^F \leq c_i$
 
 *All defined for $i \in \{0, 1, \ldots, N+1\}$*
 
+**Direction Selector**
+
+$y_i \in \{0,1\}$ for $i \in \{1,\ldots,N\}$
+*1 if station $i$ operates in pickup mode, 0 if dropoff mode. Forces $u_i$ and $v_i$ not to be positive at the same station (stations only, depots excluded)*
+
 **Vehicle Load**
 
 $w_i \in \mathbb{Z}_+$, $\quad 0 \leq w_i \leq Q$
@@ -141,6 +146,11 @@ $$B \leq b_i^F \leq c_i - B \quad \forall i \in \{1,\ldots,N\}$$
 $$u_i \leq b_i \sum_{\substack{j=0\\j \neq i}}^{N+1} x_{i,j} \quad \forall i \in \{0,\ldots,N+1\}$$
 
 $$v_j \leq (c_j - b_j) \sum_{\substack{i=0\\i \neq j}}^{N+1} x_{i,j} \quad \forall j \in \{0,\ldots,N+1\}$$
+
+**Pickup or delivery exclusivity** (stations only), with $y_i \in \{0,1\}$, $y_i = 1$ selecting pickup:
+$$u_i \leq b_i \, y_i \quad \forall i \in \{1,\ldots,N\}$$
+
+$$v_i \leq (c_i - b_i)(1 - y_i) \quad \forall i \in \{1,\ldots,N\}$$
 
 **6. Time Budget**
 

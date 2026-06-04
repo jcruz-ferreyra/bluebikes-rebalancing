@@ -83,6 +83,15 @@ def delivery_visit_rule(m, j):
     return m.v[j] <= (m.c[j] - m.b[j]) * visited
 
 
+# --- Pickup/Delivery Exclusivity ---
+def pickup_direction_rule(m, i):
+    return m.u[i] <= m.b[i] * m.y[i]
+
+
+def delivery_direction_rule(m, i):
+    return m.v[i] <= (m.c[i] - m.b[i]) * (1 - m.y[i])
+
+
 # --- Time Budget ---
 def time_budget_rule(m):
     travel_time = sum(m.ttime[i, j] * m.x[i, j] for (i, j) in m.ARCS)

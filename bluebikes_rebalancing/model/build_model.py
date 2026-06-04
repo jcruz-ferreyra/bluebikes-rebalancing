@@ -103,6 +103,7 @@ def build_vrp_model(
     model.x = Var(model.ARCS, domain=Binary)
     model.u = Var(model.NODES, domain=NonNegativeIntegers, bounds=(0, None))
     model.v = Var(model.NODES, domain=NonNegativeIntegers, bounds=(0, None))
+    model.y = Var(model.STATIONS, domain=Binary)
     model.b_final = Var(model.NODES, domain=NonNegativeIntegers, bounds=(0, None))
     model.w = Var(model.NODES, domain=NonNegativeIntegers, bounds=(0, Q))
     model.p = Var(model.STATIONS, domain=NonNegativeReals, bounds=(1, N))
@@ -141,6 +142,8 @@ def build_vrp_model(
     model.buffer_upper = Constraint(model.STATIONS, rule=const.buffer_upper_rule)
     model.pickup_visit = Constraint(model.NODES, rule=const.pickup_visit_rule)
     model.delivery_visit = Constraint(model.NODES, rule=const.delivery_visit_rule)
+    model.pickup_direction = Constraint(model.STATIONS, rule=const.pickup_direction_rule)
+    model.delivery_direction = Constraint(model.STATIONS, rule=const.delivery_direction_rule)
 
     # Time Budget
     model.time_budget = Constraint(rule=const.time_budget_rule)
