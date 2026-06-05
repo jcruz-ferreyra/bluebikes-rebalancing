@@ -1,4 +1,10 @@
-from .plots import COLORS, plot_points_on_map, plot_rebalancing_map, plot_daily_longterm
+from .plots import (
+    COLORS,
+    plot_daily_longterm,
+    plot_points_on_map,
+    plot_rebalancing_map,
+    plot_rebalancing_map_single,
+)
 
 __all__ = [
     # Plots
@@ -6,4 +12,5 @@ __all__ = [
     "plot_daily_longterm",
     "plot_points_on_map",
     "plot_rebalancing_map",
+    "plot_rebalancing_map_single",
 ]

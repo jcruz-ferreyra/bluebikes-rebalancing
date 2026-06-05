@@ -1,4 +1,4 @@
-# bluebikes_rebalancing/model/build_model.py
+# bluebikes_rebalancing/model/build_model_single.py
 
 from pyomo.environ import (
     Binary,
@@ -13,7 +13,7 @@ from pyomo.environ import (
     minimize,
 )
 
-import bluebikes_rebalancing.model.constraints as const
+import bluebikes_rebalancing.model.constraints_single as const
 
 
 def objective_rule(m):
@@ -22,7 +22,7 @@ def objective_rule(m):
     return routing_cost + service_penalty
 
 
-def build_vrp_model(
+def build_vrp_model_single(
     nodes, stations, b, c, t, dist, ttime, Q, B, T_MAX, ALPHA, BETA, SERVICE_TIME, TIME_PER_BIKE
 ):
     """

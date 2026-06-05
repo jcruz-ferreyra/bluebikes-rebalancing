@@ -1,0 +1,40 @@
+# tasks/run_optimization/config.yaml
+
+# Target date for optimization
+target_date: "2026-03-02"    # YYYY-MM-DD format
+
+# Model parameters
+model_params:
+  # Vehicle and fleet parameters
+  truck_capacity: 20         # Q: per-vehicle capacity in bikes
+  fleet_size: 1              # K: maximum number of vehicles that may be used
+  depot_capacity: 20         # S: total bikes the fleet can source/return at the depot
+                             #    (set equal to truck_capacity to mimic the single-vehicle case)
+  buffer: 2                  # B: minimum bikes and docks at each station after rebalancing
+
+  # Objective function weights
+  alpha: 1.0                 # distance cost weight ($/meter)
+  beta: 10.0                 # service quality weight ($/bike²)
+  gamma: 1000.0              # fixed cost per deployed vehicle (calibration weight;
+                             #   makes fleet size endogenous — sweep to find where
+                             #   the optimal vehicle count flips)
+
+  # Time parameters (all in minutes)
+  service_time: 5.0          # fixed time per station stop
+  time_per_bike: 1.0         # variable time per bike loaded/unloaded
+  max_operation_time: 180.0  # T_MAX: per-vehicle operational window (3 hours)
+
+# Solver configuration
+solver_params:
+  factory: "gurobi"          # "gurobi", "cplex", or "glpk"
+  time_limit: 600            # solver time limit in seconds (10 minutes)
+  mip_gap: 0.02              # relative MIP optimality gap (2%)
+  threads: 8                 # number of solver threads
+
+# Plot configuration
+plot_params:
+  save_plot: true            # whether to save the rebalancing map
+  zoom: 15                   # basemap tile zoom level
+
+# Output storage location
+output_storage: "local"      # "local" or "drive"

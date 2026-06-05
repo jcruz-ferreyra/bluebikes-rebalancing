@@ -1,4 +1,4 @@
-# tasks/run_optimization/config.yaml
+# tasks/run_optimization_single/config.yaml
 
 # Target date for optimization
 target_date: "2026-03-04"    # YYYY-MM-DD format

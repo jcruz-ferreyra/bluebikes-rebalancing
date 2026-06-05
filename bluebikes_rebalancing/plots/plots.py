@@ -24,6 +24,14 @@ COLORS = [
     "#4d4d4d",
 ]
 
+# Per-vehicle palette for the multi-vehicle map. COLORS is arranged in
+# (lighter, darker) hue pairs; the saturated odd indexes (all at the same
+# lightness) draw the route lines, and each route's bike-count label boxes use
+# the paired lighter even index. The last two COLORS entries are grays reserved
+# for the depot, so the fleet palette holds 5 vehicles before it wraps.
+VEHICLE_ROUTE_COLORS = COLORS[1:10:2]  # indexes 1, 3, 5, 7, 9
+VEHICLE_BOX_COLORS = COLORS[0:9:2]  # indexes 0, 2, 4, 6, 8
+
 
 def plot_daily_longterm(
     df_daily,
@@ -291,7 +299,7 @@ def plot_points_on_map(
     return fig, ax
 
 
-def plot_rebalancing_map(
+def plot_rebalancing_map_single(
     plot_df,
     network_gdf,
     journey_gdf,
@@ -493,6 +501,297 @@ def plot_rebalancing_map(
 
     # Create custom legend handles
     legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=depot_color,
+            markersize=8,
+            markeredgecolor="black",
+            markeredgewidth=0.5,
+            label="Depot",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="s",
+            color="w",
+            markerfacecolor="white",
+            markersize=8,
+            markeredgecolor="black",
+            label="Dropoffs (+) / Pickups (−) at station",
+            linestyle="None",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="s",
+            color="w",
+            markerfacecolor="black",
+            markersize=8,
+            markeredgecolor="black",
+            label="Dropoffs (+) / Pickups (−) at depot",
+            linestyle="None",
+        ),
+    ]
+
+    ax.legend(handles=legend_elements, loc="best", fontsize=9)
+
+    ax.set_title(title, fontsize=14)
+
+    ax.axis("off")
+    plt.tight_layout()
+    if show:
+        plt.show()
+
+    return fig, ax
+
+
+def plot_rebalancing_map(
+    plot_df,
+    network_gdf,
+    journey_gdf,
+    depot_df,
+    depot_ops,
+    figsize=(12, 12),
+    zoom=13,
+    title="Fleet rebalancing journeys and initial station inventory deviation",
+    vehicle_colors=None,
+    depot_color=COLORS[-1],
+    show=True,
+):
+    """
+    Plot the multi-vehicle fleet rebalancing journeys on a map with station
+    inventory deviations.
+
+    Each vehicle's route is drawn in a distinct color, with per-vehicle visit
+    sequence numbers. Stations are colored by their initial deviation from
+    target, and the shared depot reports the fleet's aggregate load/return.
+
+    Parameters
+    ----------
+    plot_df : pd.DataFrame
+        Station-level dataframe with columns: station, lat, lon, deviation,
+        pickups, dropoffs. Must include only stations (no depots). pickups and
+        dropoffs are summed over the fleet.
+    network_gdf : gpd.GeoDataFrame
+        Full road network GeoDataFrame (background layer).
+    journey_gdf : gpd.GeoDataFrame
+        Arcs traveled by the fleet, ordered per vehicle, with a 'vehicle' column
+        identifying which vehicle traversed each arc (plus 'from' and 'to').
+    depot_df : pd.DataFrame
+        Single-row dataframe with columns lat, lon for the depot location.
+    depot_ops : list of dict
+        Per-vehicle depot operations, one dict per vehicle that touches the
+        depot: {'vehicle': k, 'pickups': bikes loaded at depot_start,
+        'dropoffs': bikes returned at depot_end}. Rendered as a vertical stack
+        of route-colored boxes (white text) so the shared depot location does
+        not overlap.
+    figsize : tuple
+        Figure size (width, height).
+    zoom : int
+        Basemap tile zoom level.
+    title : str
+        Plot title.
+    vehicle_colors : dict, optional
+        Mapping {vehicle: route line color}. If None, each vehicle gets a
+        saturated odd-index COLORS entry for its route, paired with the lighter
+        even-index entry behind its bike-count labels (up to 5 vehicles).
+    depot_color : str
+        Color for the depot marker.
+    show : bool
+        If True, display the plot. If False, return figure without showing.
+
+    Returns
+    -------
+    fig, ax : matplotlib Figure and Axes
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Road network background
+    network_gdf.to_crs(epsg=3857).plot(
+        ax=ax, color="lightgray", linewidth=0.3, alpha=0.5, zorder=1
+    )
+
+    # Determine which vehicles are present in the solution
+    vehicles = []
+    if len(journey_gdf) > 0 and "vehicle" in journey_gdf.columns:
+        vehicles = sorted(journey_gdf["vehicle"].unique())
+
+    # Assign colors per vehicle: a saturated odd-index route line paired with
+    # the lighter even-index color drawn behind that vehicle's bike-count
+    # labels. The palette holds 5 vehicles before wrapping.
+    if vehicle_colors is None:
+        vehicle_colors = {
+            veh: VEHICLE_ROUTE_COLORS[idx % len(VEHICLE_ROUTE_COLORS)]
+            for idx, veh in enumerate(vehicles)
+        }
+    vehicle_box_colors = {
+        veh: VEHICLE_BOX_COLORS[idx % len(VEHICLE_BOX_COLORS)]
+        for idx, veh in enumerate(vehicles)
+    }
+
+    # Plot each vehicle's journey and build per-vehicle visit sequence mapping
+    # station -> (vehicle, sequence_number)
+    station_sequence = {}
+    for veh in vehicles:
+        veh_gdf = journey_gdf[journey_gdf["vehicle"] == veh]
+        if len(veh_gdf) == 0:
+            continue
+        veh_gdf.to_crs(epsg=3857).plot(
+            ax=ax, color=vehicle_colors[veh], linewidth=2.5, alpha=0.9, zorder=2
+        )
+        for seq, dest_station in enumerate(veh_gdf["to"].tolist(), 1):
+            if dest_station not in station_sequence:
+                station_sequence[dest_station] = (veh, seq)
+
+    # Stations colored by deviation
+    gdf_stations = gpd.GeoDataFrame(
+        plot_df,
+        geometry=[Point(row.lon, row.lat) for _, row in plot_df.iterrows()],
+        crs="EPSG:4326",
+    ).to_crs(epsg=3857)
+
+    dev_abs_max = plot_df["deviation"].abs().max()
+    scatter = ax.scatter(
+        gdf_stations.geometry.x,
+        gdf_stations.geometry.y,
+        c=plot_df["deviation"],
+        cmap="RdBu_r",
+        vmin=-dev_abs_max,
+        vmax=dev_abs_max,
+        s=80,
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=5,
+        alpha=0.9,
+    )
+
+    # Visited stations: ring + per-vehicle sequence number + net operation label
+    visited_stations = set(
+        plot_df.loc[(plot_df["pickups"] > 0) | (plot_df["dropoffs"] > 0), "station"]
+    )
+
+    for _, row in gdf_stations.iterrows():
+        if row["station"] not in visited_stations:
+            continue
+
+        ax.scatter(
+            row.geometry.x,
+            row.geometry.y,
+            s=150,
+            facecolor="none",
+            edgecolor="black",
+            linewidth=1.5,
+            zorder=6,
+        )
+
+        # Sequence number (route color) and net-bikes box (paired lighter
+        # color), both keyed to the vehicle that serves this station
+        seq_info = station_sequence.get(row["station"])
+        box_color = "white"
+        if seq_info is not None:
+            veh, seq = seq_info
+            box_color = vehicle_box_colors.get(veh, "white")
+            ax.annotate(
+                str(seq),
+                xy=(row.geometry.x, row.geometry.y),
+                xytext=(0, 10),
+                textcoords="offset points",
+                fontsize=7,
+                fontweight="bold",
+                color=vehicle_colors.get(veh, "black"),
+                ha="center",
+                va="center",
+                zorder=6.5,
+            )
+
+        net = int(row["dropoffs"]) - int(row["pickups"])
+        label = f"+{net}" if net > 0 else str(net)
+        ax.annotate(
+            label,
+            xy=(row.geometry.x, row.geometry.y),
+            xytext=(8, 6),
+            textcoords="offset points",
+            fontsize=7,
+            fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor=box_color, alpha=0.85),
+            zorder=7,
+        )
+
+    # Depot marker
+    depot_gdf = gpd.GeoDataFrame(
+        depot_df,
+        geometry=[Point(depot_df.iloc[0].lon, depot_df.iloc[0].lat)],
+        crs="EPSG:4326",
+    ).to_crs(epsg=3857)
+    depot_x = depot_gdf.geometry.x.iloc[0]
+    depot_y = depot_gdf.geometry.y.iloc[0]
+
+    ax.scatter(
+        depot_x,
+        depot_y,
+        s=80,
+        color=depot_color,
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=8,
+        label="Depot",
+    )
+
+    # Per-vehicle depot operation labels. All vehicles share the depot location,
+    # so the boxes are stacked vertically (centered on the marker) to avoid
+    # overlap. Each box is filled with that vehicle's route color and shows its
+    # depot load (−, bikes taken onto the van) and/or return (+, bikes brought
+    # back), in white.
+    depot_entries = [
+        e for e in depot_ops if e.get("pickups", 0) > 0 or e.get("dropoffs", 0) > 0
+    ]
+    row_step = 15  # points between stacked boxes
+    y_top = (len(depot_entries) - 1) / 2 * row_step  # center the stack on the depot
+    for idx, entry in enumerate(depot_entries):
+        load = entry.get("pickups", 0)
+        ret = entry.get("dropoffs", 0)
+        parts = []
+        if load > 0:
+            parts.append(f"-{load}")
+        if ret > 0:
+            parts.append(f"+{ret}")
+
+        ax.annotate(
+            " ".join(parts),
+            xy=(depot_x, depot_y),
+            xytext=(-10, y_top - idx * row_step),
+            textcoords="offset points",
+            fontsize=7,
+            fontweight="bold",
+            color="white",
+            bbox=dict(
+                boxstyle="round,pad=0.2",
+                facecolor=vehicle_colors.get(entry["vehicle"], depot_color),
+                edgecolor="black",
+                linewidth=0.4,
+                alpha=0.95,
+            ),
+            zorder=8.5,
+            ha="right",
+            va="center",
+        )
+
+    cbar = plt.colorbar(scatter, ax=ax, shrink=0.25)
+    cbar.set_label("Initial deviation (inventory - target)", rotation=90, labelpad=10)
+    cbar.ax.yaxis.set_label_position("left")
+    cbar.ax.tick_params(labelsize=8)
+
+    ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, zoom=zoom)
+
+    # Custom legend: one line per vehicle, plus depot and operation markers
+    legend_elements = [
+        Line2D([0], [0], color=vehicle_colors[veh], linewidth=2.5, label=f"Vehicle {veh}")
+        for veh in vehicles
+    ]
+    legend_elements += [
         Line2D(
             [0],
             [0],

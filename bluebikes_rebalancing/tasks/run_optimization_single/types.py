@@ -1,4 +1,4 @@
-# tasks/run_optimization/types.py
+# tasks/run_optimization_single/types.py
 
 from dataclasses import dataclass, field
 from pathlib import Path

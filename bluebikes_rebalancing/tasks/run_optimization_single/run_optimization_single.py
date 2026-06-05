@@ -1,4 +1,4 @@
-# tasks/run_optimization/run_optimization.py
+# tasks/run_optimization_single/run_optimization_single.py
 
 import json
 import logging
@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pyomo.environ import SolverFactory, value
 
-from bluebikes_rebalancing.model import build_vrp_model
-from bluebikes_rebalancing.plots import plot_rebalancing_map
+from bluebikes_rebalancing.model import build_vrp_model_single
+from bluebikes_rebalancing.plots import plot_rebalancing_map_single
 
 from .types import RunOptimizationContext
 
@@ -184,7 +184,7 @@ def _build_model(stations_df: pd.DataFrame, network_df: pd.DataFrame, ctx: RunOp
     )
 
     # Build model
-    model = build_vrp_model(
+    model = build_vrp_model_single(
         nodes=nodes,
         stations=stations,
         b=b,
@@ -509,7 +509,7 @@ def _save_map(
     }
 
     # Generate plot
-    fig, ax = plot_rebalancing_map(
+    fig, ax = plot_rebalancing_map_single(
         plot_df=plot_df,
         network_gdf=network_df,
         journey_gdf=journey_gdf,

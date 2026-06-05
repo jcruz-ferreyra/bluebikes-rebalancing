@@ -1,4 +1,4 @@
-# tasks/run_optimization/__main__.py
+# tasks/run_optimization_single/__main__.py
 
 from pathlib import Path
 
@@ -10,13 +10,13 @@ script_name = Path(__file__).parent.name
 logger = setup_logging(script_name, LOCAL_DATA_DIR)
 
 # Import task components
-from bluebikes_rebalancing.tasks.run_optimization import (
+from bluebikes_rebalancing.tasks.run_optimization_single import (
     RunOptimizationContext,
     run_optimization,
 )
 
 logger.info("=" * 80)
-logger.info("Starting run_optimization task")
+logger.info("Starting run_optimization_single task")
 logger.info("=" * 80)
 
 # Load config
@@ -65,5 +65,5 @@ context = RunOptimizationContext(
 run_optimization(context)
 
 logger.info("=" * 80)
-logger.info("✓ run_optimization task completed successfully")
+logger.info("✓ run_optimization_single task completed successfully")
 logger.info("=" * 80)
