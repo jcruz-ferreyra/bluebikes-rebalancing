@@ -134,13 +134,13 @@ $$\sum_{k=1}^{K} \sum_{\substack{i=0\\i \neq h}}^{N+1} x_{i,h,k} \leq 1 \quad \f
 
 **3. Subtour Elimination (MTZ)**
 
-$$p_i - p_j + N \sum_{k=1}^{K} x_{i,j,k} \leq N - 1 \quad \forall i,j \in \{1,\ldots,N\}, i \neq j$$
+$$p_i - p_j + N \sum_{k=1}^{K} x_{i,j,k} + (N-2) \sum_{k=1}^{K} x_{j,i,k} \leq N - 1 \quad \forall i,j \in \{1,\ldots,N\}, i \neq j$$
 
 $$1 \leq p_i \leq N \quad \forall i \in \{1,\ldots,N\}$$
 
 *A single position variable suffices: each station lies on one route, and summing $x$ over $k$ makes the coefficient $\sum_k x_{i,j,k} \in \{0,1\}$, so the constraint orders stations within whichever vehicle uses the arc and stays vacuous across routes.*
 
-*MTZ is the loosest standard subtour formulation, and its LP relaxation weakens further as the binary count scales with $K$. It is chosen here for transparency and is correct, not tuned for speed. If fleet-scale solves stall, the first lever is to replace it with lifted Desrochers–Laporte inequalities or a commodity-flow subtour elimination, both of which give a materially tighter relaxation.*
+*This is the lifted MTZ of Desrochers and Laporte. The reverse-arc term $(N-2)\sum_k x_{j,i,k}$ forces the two positions to be exactly consecutive on a used arc (through this constraint together with its mirror), and summing the constraint with its mirror implies $\sum_k x_{i,j,k} + \sum_k x_{j,i,k} \leq 1$, so at most one direction of any pair can carry weight. This removes the fractional two-station loop $x_{ij}=x_{ji}=\tfrac{1}{2}$ that the basic MTZ tolerates, tightening the LP relaxation and shrinking the gap without cutting any integer route. The coefficient $N-2$ is derived for this model's position convention $p_i \in [1,N]$ (the forward coefficient is $N$, so the lift is $N-2$); it is not a transplanted textbook constant — the familiar $n-3$ assumes a different convention — and should not be changed. A commodity-flow subtour elimination remains a further lever if larger fleets still stall.*
 
 **4. Inventory Balance** (stations only)
 

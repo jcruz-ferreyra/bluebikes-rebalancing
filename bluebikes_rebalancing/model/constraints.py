@@ -73,12 +73,14 @@ def visit_once_rule(m, h):
 
 # --- MTZ Subtour Elimination (fleet wide) ---
 def mtz_rule(m, i, j):
-    """Single fleet-wide position variable orders stations within whichever
-    vehicle uses arc (i, j); summing x over vehicles keeps the coefficient
-    binary and the constraint vacuous across distinct routes."""
     N = len(m.STATIONS)
     if i in m.STATIONS and j in m.STATIONS:
-        return m.p[i] - m.p[j] + N * sum(m.x[i, j, k] for k in m.VEHICLES) <= N - 1
+        # lifted MTZ (Desrochers and Laporte): the reverse arc term forces
+        # consecutive positions on used arcs and forbids loops between two
+        # stations, tightening the LP relaxation without removing any route
+        x_forward = sum(m.x[i, j, k] for k in m.VEHICLES)
+        x_reverse = sum(m.x[j, i, k] for k in m.VEHICLES)
+        return m.p[i] - m.p[j] + N * x_forward + (N - 2) * x_reverse <= N - 1
     return Constraint.Skip
 
 

@@ -3,7 +3,6 @@ from .plots import (
     plot_daily_longterm,
     plot_points_on_map,
     plot_rebalancing_map,
-    plot_rebalancing_map_single,
 )
 
 __all__ = [
@@ -12,5 +11,4 @@ __all__ = [
     "plot_daily_longterm",
     "plot_points_on_map",
     "plot_rebalancing_map",
-    "plot_rebalancing_map_single",
 ]

@@ -85,7 +85,7 @@ class RunOptimizationContext:
         two formulations can be run and compared without clobbering each other.
         """
         date_str = self.target_date.replace("-", "")
-        path = self.output_data_dir / "rebalancing_results" / "results_multi" / date_str
+        path = self.output_data_dir / "rebalancing_results" / "results" / date_str
         path.mkdir(parents=True, exist_ok=True)
         return path
 
