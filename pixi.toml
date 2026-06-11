@@ -27,6 +27,7 @@ pyomo = "*"
 pyyaml = "*"
 tqdm = "*"
 ipywidgets = "*"
+pydantic = ">=2.13.4,<3"
 
 [pypi-dependencies]
 bluebikes_rebalancing = { path = ".", editable = true }
