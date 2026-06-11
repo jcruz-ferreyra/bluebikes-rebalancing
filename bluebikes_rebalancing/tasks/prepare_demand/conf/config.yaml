@@ -1,0 +1,22 @@
+# tasks/prepare_demand/conf/config.yaml
+
+# Forecast source
+model_name: "prophet"  # Model to use (e.g., "prophet", "sarima")
+
+# Date range for demand files
+demand_start_date: "2026-03-01"  # YYYY-MM-DD - first day to generate demand file
+demand_end_date: "2026-03-31"    # YYYY-MM-DD - last day to generate demand file
+
+# Storage location
+output_storage: "local"  # "local" or "drive"
+
+# Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
+hydra:
+  job:
+    name: prepare_demand
+    chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance
+  run:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/prepare_demand/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/prepare_demand/multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
