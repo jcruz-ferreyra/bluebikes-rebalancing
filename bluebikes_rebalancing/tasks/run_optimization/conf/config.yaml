@@ -1,4 +1,4 @@
-# tasks/run_optimization/config.yaml
+# tasks/run_optimization/conf/config.yaml
 
 # Target date for optimization
 target_date: "2026-03-03"    # YYYY-MM-DD format
@@ -38,3 +38,14 @@ plot_params:
 
 # Output storage location
 output_storage: "local"      # "local" or "drive"
+
+# Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
+hydra:
+  job:
+    name: run_optimization
+    chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance
+  run:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/run_optimization/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/run_optimization/multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}

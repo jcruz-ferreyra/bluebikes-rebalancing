@@ -1,0 +1,19 @@
+# tasks/prepare_initial_status/conf/config.yaml
+
+# Date range for initial status files
+status_start_date: "2026-03-01"  # YYYY-MM-DD - first day to generate status file
+status_end_date: "2026-03-31"    # YYYY-MM-DD - last day to generate status file
+
+# Storage location
+output_storage: "local"  # "local" or "drive"
+
+# Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
+hydra:
+  job:
+    name: prepare_initial_status
+    chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance
+  run:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/prepare_initial_status/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ${oc.env:LOCAL_DIR,${hydra.runtime.cwd}}/experiments/prepare_initial_status/multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
