@@ -51,17 +51,17 @@ def _load_all_forecast(ctx: PrepareDemandContext) -> dict[str, pd.DataFrame]:
     logger.info(f"Loading demand from model: {ctx.model_name}")
     logger.info("=" * 60)
 
-    if not ctx.demand_dir.exists():
+    if not ctx.forecasts_dir.exists():
         raise FileNotFoundError(
-            f"Forecasts directory not found: {ctx.demand_dir}\n"
+            f"Forecasts directory not found: {ctx.forecasts_dir}\n"
             f"Please run forecast_{ctx.model_name} task first."
         )
 
     # Find all forecast CSV files
-    csv_files = list(ctx.demand_dir.glob("*_forecast.csv"))
+    csv_files = list(ctx.forecasts_dir.glob("*_forecast.csv"))
 
     if not csv_files:
-        raise FileNotFoundError(f"No forecast files found in {ctx.demand_dir}")
+        raise FileNotFoundError(f"No forecast files found in {ctx.forecasts_dir}")
 
     logger.info(f"Found {len(csv_files)} forecast files")
 
@@ -188,7 +188,7 @@ def prepare_demand(ctx: PrepareDemandContext) -> None:
         ctx: PrepareDemandContext containing configuration and output paths
     """
     logger.info("Starting forecast preparation")
-    logger.info(f"Input directory: {ctx.demand_dir}")
+    logger.info(f"Input directory: {ctx.forecasts_dir}")
     logger.info(f"Output directory: {ctx.demand_dir}")
 
     # Load station metadata
