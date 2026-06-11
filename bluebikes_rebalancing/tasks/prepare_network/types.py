@@ -1,31 +1,57 @@
-from dataclasses import dataclass
+# tasks/prepare_network/types.py
+
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
-@dataclass
-class PrepareNetworkContext:
+class PrepareNetworkContext(BaseModel):
     """Context for preparing network distance and travel time matrices."""
+
+    model_config = ConfigDict(extra="forbid")
 
     depot_lat_lon: tuple[float, float]
     network_bbox: tuple[float, float, float, float]  # (west, south, east, north)
     output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    output_storage: Literal["local", "drive"] = "local"
 
-    def __post_init__(self):
-        # Validate output directory
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
+    @field_validator("depot_lat_lon")
+    @classmethod
+    def _check_lat_lon(cls, value: tuple[float, float]) -> tuple[float, float]:
+        lat, lon = value
+        if not (-90 <= lat <= 90):
+            raise ValueError(f"Latitude must be between -90 and 90, got {lat}")
+        if not (-180 <= lon <= 180):
+            raise ValueError(f"Longitude must be between -180 and 180, got {lon}")
+        return value
 
-        # Validate storage option
-        _validate_storage(self.output_storage)
+    @field_validator("network_bbox")
+    @classmethod
+    def _check_bbox(
+        cls, value: tuple[float, float, float, float]
+    ) -> tuple[float, float, float, float]:
+        west, south, east, north = value
 
-        # Validate depot coordinates
-        _validate_lat_lon(self.depot_lat_lon)
+        if not (-180 <= west <= 180 and -180 <= east <= 180):
+            raise ValueError("Longitude values must be between -180 and 180")
+        if not (-90 <= south <= 90 and -90 <= north <= 90):
+            raise ValueError("Latitude values must be between -90 and 90")
+        if west >= east:
+            raise ValueError(f"West ({west}) must be less than East ({east})")
+        if south >= north:
+            raise ValueError(f"South ({south}) must be less than North ({north})")
+        return value
 
-        # Validate bounding box
-        _validate_bbox(self.network_bbox)
-
-        # Validate stations file exists
-        _validate_stations_file(self.station_metadata_path)
+    @model_validator(mode="after")
+    def _check_inputs(self) -> "PrepareNetworkContext":
+        # Station metadata must exist before any network download starts
+        if not self.station_metadata_path.exists():
+            raise ValueError(
+                f"Station information file not found: {self.station_metadata_path}\n"
+                f"Please run download_stations_data task first."
+            )
+        return self
 
     @property
     def raw_stations_dir(self) -> Path:
@@ -77,74 +103,3 @@ class PrepareNetworkContext:
     def routes_json_path(self) -> Path:
         """Path to routes JSON with OSM node sequences."""
         return self.processed_network_dir / "routes_node_sequences.json"
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, got '{storage}'")
-
-
-def _validate_lat_lon(lat_lon: tuple[float, float]) -> None:
-    """
-    Validate latitude/longitude coordinates.
-
-    Args:
-        lat_lon: Tuple of (latitude, longitude)
-
-    Raises:
-        ValueError: If coordinates are out of valid range
-    """
-    lat, lon = lat_lon
-    if not (-90 <= lat <= 90):
-        raise ValueError(f"Latitude must be between -90 and 90, got {lat}")
-    if not (-180 <= lon <= 180):
-        raise ValueError(f"Longitude must be between -180 and 180, got {lon}")
-
-
-def _validate_bbox(bbox: tuple[float, float, float, float]) -> None:
-    """
-    Validate bounding box coordinates.
-
-    Args:
-        bbox: Tuple of (west, south, east, north)
-
-    Raises:
-        ValueError: If bounding box is invalid
-    """
-    west, south, east, north = bbox
-
-    if not (-180 <= west <= 180 and -180 <= east <= 180):
-        raise ValueError(f"Longitude values must be between -180 and 180")
-    if not (-90 <= south <= 90 and -90 <= north <= 90):
-        raise ValueError(f"Latitude values must be between -90 and 90")
-    if west >= east:
-        raise ValueError(f"West ({west}) must be less than East ({east})")
-    if south >= north:
-        raise ValueError(f"South ({south}) must be less than North ({north})")
-
-
-def _validate_stations_file(file_path: Path) -> None:
-    """
-    Validate that station information file exists.
-
-    Args:
-        file_path: Path to station_information.csv
-
-    Raises:
-        FileNotFoundError: If file does not exist
-    """
-    if not file_path.exists():
-        raise FileNotFoundError(
-            f"Station information file not found: {file_path}\n"
-            f"Please run download_stations_data task first."
-        )

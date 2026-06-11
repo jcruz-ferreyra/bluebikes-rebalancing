@@ -87,7 +87,7 @@ def _load_and_prepare_data(ctx: RunOptimizationContext) -> tuple[pd.DataFrame, p
     )
 
     # Set depot values
-    Q = ctx.model_params["truck_capacity"]
+    Q = ctx.model_params.truck_capacity
 
     filt_depot_start = stations_df["short_name"] == DEPOT_START
     filt_depot_end = stations_df["short_name"] == DEPOT_END
@@ -150,16 +150,16 @@ def _build_model(stations_df: pd.DataFrame, network_df: pd.DataFrame, ctx: RunOp
     logger.info("=" * 60)
 
     # Extract model parameters
-    Q = ctx.model_params["truck_capacity"]
-    K = ctx.model_params["fleet_size"]
-    S = ctx.model_params["depot_capacity"]
-    B = ctx.model_params["buffer"]
-    ALPHA = ctx.model_params["alpha"]
-    BETA = ctx.model_params["beta"]
-    GAMMA = ctx.model_params["gamma"]
-    SERVICE_TIME = ctx.model_params["service_time"]
-    TIME_PER_BIKE = ctx.model_params["time_per_bike"]
-    T_MAX = ctx.model_params["max_operation_time"]
+    Q = ctx.model_params.truck_capacity
+    K = ctx.model_params.fleet_size
+    S = ctx.model_params.depot_capacity
+    B = ctx.model_params.buffer
+    ALPHA = ctx.model_params.alpha
+    BETA = ctx.model_params.beta
+    GAMMA = ctx.model_params.gamma
+    SERVICE_TIME = ctx.model_params.service_time
+    TIME_PER_BIKE = ctx.model_params.time_per_bike
+    T_MAX = ctx.model_params.max_operation_time
 
     # Define node sets
     nodes = stations_df["short_name"].tolist()
@@ -229,10 +229,10 @@ def _solve_model(model, ctx: RunOptimizationContext):
     logger.info("=" * 60)
 
     # Extract solver parameters
-    solver_factory = ctx.solver_params["factory"]
-    time_limit = ctx.solver_params["time_limit"]
-    mip_gap = ctx.solver_params["mip_gap"]
-    threads = ctx.solver_params["threads"]
+    solver_factory = ctx.solver_params.factory
+    time_limit = ctx.solver_params.time_limit
+    mip_gap = ctx.solver_params.mip_gap
+    threads = ctx.solver_params.threads
 
     logger.info(f"Solver: {solver_factory}")
     logger.info(f"Time limit: {time_limit}s")
@@ -370,20 +370,20 @@ def _save_parameters(model, ctx: RunOptimizationContext) -> None:
     """Save model and solver parameters to JSON."""
     parameters = {
         "target_date": ctx.target_date,
-        "truck_capacity": ctx.model_params["truck_capacity"],
-        "fleet_size": ctx.model_params["fleet_size"],
-        "depot_capacity": ctx.model_params["depot_capacity"],
-        "buffer": ctx.model_params["buffer"],
-        "alpha": ctx.model_params["alpha"],
-        "beta": ctx.model_params["beta"],
-        "gamma": ctx.model_params["gamma"],
-        "service_time": ctx.model_params["service_time"],
-        "time_per_bike": ctx.model_params["time_per_bike"],
-        "max_operation_time": ctx.model_params["max_operation_time"],
-        "solver_factory": ctx.solver_params["factory"],
-        "solver_time_limit": ctx.solver_params["time_limit"],
-        "solver_mip_gap": ctx.solver_params["mip_gap"],
-        "solver_threads": ctx.solver_params["threads"],
+        "truck_capacity": ctx.model_params.truck_capacity,
+        "fleet_size": ctx.model_params.fleet_size,
+        "depot_capacity": ctx.model_params.depot_capacity,
+        "buffer": ctx.model_params.buffer,
+        "alpha": ctx.model_params.alpha,
+        "beta": ctx.model_params.beta,
+        "gamma": ctx.model_params.gamma,
+        "service_time": ctx.model_params.service_time,
+        "time_per_bike": ctx.model_params.time_per_bike,
+        "max_operation_time": ctx.model_params.max_operation_time,
+        "solver_factory": ctx.solver_params.factory,
+        "solver_time_limit": ctx.solver_params.time_limit,
+        "solver_mip_gap": ctx.solver_params.mip_gap,
+        "solver_threads": ctx.solver_params.threads,
         "num_stations": len(model.STATIONS),
         "num_nodes": len(model.NODES),
         "num_vehicles": len(model.VEHICLES),
@@ -652,7 +652,7 @@ def _save_map(
         journey_gdf=journey_gdf,
         depot_df=depot_df,
         depot_ops=depot_ops,
-        zoom=ctx.plot_params["zoom"],
+        zoom=ctx.plot_params.zoom,
         title=f"Fleet Rebalancing Map - {ctx.target_date}",
         show=False,
     )
@@ -690,7 +690,7 @@ def _save_results(
     _save_stations(model, ctx)
     _save_route(model, network_df, ctx)
 
-    if ctx.plot_params["save_plot"]:
+    if ctx.plot_params.save_plot:
         _save_map(model, stations_df, network_df, ctx)
 
     logger.info(f"✓ All outputs saved to {ctx.results_dir}")
