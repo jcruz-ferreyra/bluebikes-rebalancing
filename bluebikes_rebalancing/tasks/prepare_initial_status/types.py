@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -15,7 +14,6 @@ class PrepareInitialStatusContext(BaseModel):
     status_start_date: str  # YYYY-MM-DD format
     status_end_date: str  # YYYY-MM-DD format
     output_data_dir: Path
-    output_storage: Literal["local", "drive"] = "local"
 
     @field_validator("status_start_date", "status_end_date")
     @classmethod

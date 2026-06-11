@@ -14,7 +14,6 @@ from omegaconf import DictConfig, OmegaConf
 # LOCAL_DIR must be in the environment before Hydra resolves ${oc.env:...}
 load_dotenv()
 
-from bluebikes_rebalancing.config import LOCAL_DATA_DIR, DRIVE_DATA_DIR  # noqa: E402
 from bluebikes_rebalancing.tasks.prepare_network import (  # noqa: E402
     PrepareNetworkContext,
     prepare_network,
@@ -31,22 +30,13 @@ def main(cfg: DictConfig) -> None:
 
     script_config = OmegaConf.to_container(cfg, resolve=True)
 
-    # Resolve the storage-dependent output directory; output_storage itself is
-    # validated by the context model, not here
-    output_storage = script_config.get("output_storage", "local")
-    if output_storage == "drive":
-        if DRIVE_DATA_DIR is None:
-            raise ValueError(
-                "DRIVE_DATA_DIR not configured. Check .env file or use 'local' storage."
-            )
-        output_data_dir = DRIVE_DATA_DIR
-    else:
-        output_data_dir = LOCAL_DATA_DIR
+    # Output roots come from the composed storage group (defaults: storage=local)
+    storage = script_config.pop("storage")
 
     # Create and validate context (the composed config feeds the model directly)
-    context = PrepareNetworkContext(**script_config, output_data_dir=output_data_dir)
+    context = PrepareNetworkContext(**script_config, output_data_dir=storage["data_dir"])
 
-    logger.info(f"Using {context.output_storage} storage: {context.output_data_dir}")
+    logger.info(f"Using {storage['name']} storage: {context.output_data_dir}")
     logger.info(f"Depot location: {context.depot_lat_lon}")
     logger.info(f"Network bounding box: {context.network_bbox}")
 

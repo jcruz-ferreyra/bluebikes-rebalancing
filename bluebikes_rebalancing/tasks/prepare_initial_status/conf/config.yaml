@@ -1,14 +1,18 @@
 # tasks/prepare_initial_status/conf/config.yaml
 
+defaults:
+  - storage: local  # shared group (bluebikes_rebalancing/conf): resolves the data/model roots
+  - _self_
+
 # Date range for initial status files
 status_start_date: "2026-03-01"  # YYYY-MM-DD - first day to generate status file
 status_end_date: "2026-03-31"    # YYYY-MM-DD - last day to generate status file
 
-# Storage location
-output_storage: "local"  # "local" or "drive"
 
 # Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
 hydra:
+  searchpath:
+    - pkg://bluebikes_rebalancing.conf
   job:
     name: prepare_initial_status
     chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance

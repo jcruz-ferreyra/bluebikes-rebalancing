@@ -1,5 +1,9 @@
 # tasks/prepare_network/conf/config.yaml
 
+defaults:
+  - storage: local  # shared group (bluebikes_rebalancing/conf): resolves the data/model roots
+  - _self_
+
 # Depot location (not in stations file)
 # Format: [latitude, longitude]
 depot_lat_lon: [42.338629, -71.106500]
@@ -8,11 +12,11 @@ depot_lat_lon: [42.338629, -71.106500]
 # Format: [west, south, east, north] in EPSG:4326
 network_bbox: [-71.117, 42.329, -71.078, 42.353]
 
-# Output storage location
-output_storage: "local"  # "local" or "drive"
 
 # Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
 hydra:
+  searchpath:
+    - pkg://bluebikes_rebalancing.conf
   job:
     name: prepare_network
     chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance

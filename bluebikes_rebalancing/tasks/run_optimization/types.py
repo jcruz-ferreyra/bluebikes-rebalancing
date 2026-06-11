@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -57,8 +56,6 @@ class RunOptimizationContext(BaseModel):
     model_params: ModelParams = ModelParams()
     solver_params: SolverParams = SolverParams()
     plot_params: PlotParams = PlotParams()
-
-    output_storage: Literal["local", "drive"] = "local"
 
     @field_validator("target_date")
     @classmethod

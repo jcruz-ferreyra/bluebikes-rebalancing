@@ -1,5 +1,9 @@
 # tasks/prepare_demand/conf/config.yaml
 
+defaults:
+  - storage: local  # shared group (bluebikes_rebalancing/conf): resolves the data/model roots
+  - _self_
+
 # Forecast source
 model_name: "prophet"  # Model to use (e.g., "prophet", "sarima")
 
@@ -7,11 +11,11 @@ model_name: "prophet"  # Model to use (e.g., "prophet", "sarima")
 demand_start_date: "2026-03-01"  # YYYY-MM-DD - first day to generate demand file
 demand_end_date: "2026-03-31"    # YYYY-MM-DD - last day to generate demand file
 
-# Storage location
-output_storage: "local"  # "local" or "drive"
 
 # Hydra: per-run experiment outputs (config snapshot + logs) under LOCAL_DIR
 hydra:
+  searchpath:
+    - pkg://bluebikes_rebalancing.conf
   job:
     name: prepare_demand
     chdir: false  # keep the launch cwd; data paths are absolute, run dir is for logs/provenance

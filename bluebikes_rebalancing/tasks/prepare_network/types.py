@@ -1,7 +1,6 @@
 # tasks/prepare_network/types.py
 
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -14,7 +13,6 @@ class PrepareNetworkContext(BaseModel):
     depot_lat_lon: tuple[float, float]
     network_bbox: tuple[float, float, float, float]  # (west, south, east, north)
     output_data_dir: Path
-    output_storage: Literal["local", "drive"] = "local"
 
     @field_validator("depot_lat_lon")
     @classmethod
