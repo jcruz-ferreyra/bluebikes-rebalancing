@@ -1,0 +1,50 @@
+[workspace]
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[activation.env]
+# Keep the user-level site-packages (%APPDATA%/Roaming/Python) from shadowing
+# the pixi environments (stale typing_extensions broke pydantic_core).
+PYTHONNOUSERSITE = "1"
+# Windows defaults to cp1252 and the task logs use unicode (checkmarks).
+# UTF-8 mode covers every text stream, including hydra's run-dir log file
+# (PYTHONIOENCODING only covered stdio, so the FileHandler still choked).
+PYTHONUTF8 = "1"
+
+[dependencies]
+python = "3.11.*"
+pip = "*"
+python-dotenv = "*"
+pandas = "*"
+numpy = "*"
+matplotlib = "*"
+geopandas = "*"
+shapely = "*"
+pyproj = "*"
+osmnx = "*"
+contextily = "*"
+pyomo = "*"
+pyyaml = "*"
+tqdm = "*"
+ipywidgets = "*"
+
+[pypi-dependencies]
+bluebikes_rebalancing = { path = ".", editable = true }
+# Proprietary solver bindings: Gurobi does not publish to conda-forge.
+gurobipy = ">=13.0.1,<14"
+
+[feature.dev.dependencies]
+ipykernel = "*"
+jupyterlab = "*"
+black = "*"
+flake8 = "*"
+isort = "*"
+
+[environments]
+dev = ["dev"]
+
+[feature.dev.tasks]
+lab = "jupyter lab"
+kernel = 'python -m ipykernel install --user --name bluebikes-rebalancing-dev --display-name "Pixi (bluebikes_rebalancing)"'
+format = "black . && isort ."
+lint = "flake8 ."
