@@ -19,6 +19,13 @@ A pipeline that turns per-station demand forecasts and live station status into 
 - **Result artifacts**: Per-date metrics, station-level results, route tables/shapefiles, and a rebalancing map figure
 - **Hydra-composed configs & run tracking**: CLI overrides and `-m` sweeps on every task; each run snapshots its config and log under `LOCAL_DIR/experiments/<task>/`
 
+### Output
+
+- **Processed network** - Station table with integer `idx` indices (depots bracketing the stations), a long-format station-to-station distance/travel-time matrix, route geometries (shapefile), and per-route OSM node sequences
+- **Daily model inputs** - Per-day initial station status (bikes available at the start of each day) and per-day integer pickup/dropoff demand
+- **Rebalancing plans** - Per-date ordered routes per vehicle (table + shapefile) and per-station operations with initial → final inventory
+- **Solve artifacts** - Objective breakdown and solve metrics (distance, squared deviation, vehicles used, MIP gap, status), the exact parameters used, and a route map over a basemap
+
 <br>
 
 ## Installation
@@ -357,3 +364,193 @@ experiments/                                         # hydra run tracking, per t
     ├── <timestamp>/                                 # one dir per run: .hydra/ config snapshot + job log
     └── multirun/<timestamp>/<job#>/                 # -m sweep runs
 ```
+
+<br>
+
+## How It Works
+
+### Task 1: [prepare_network](bluebikes_rebalancing/tasks/prepare_network)
+
+Downloads the OSM driving network for the service area and turns it into a station-to-station distance/travel-time matrix with route geometries.
+
+<details>
+<summary><b>Details</b></summary>
+<br>
+
+**Processing Pipeline**:
+1. Load & Filter Stations
+   - Read `stations_of_interest.json`, filter `station_information.csv` to those `short_name`s, keep `lat` / `lon` / `capacity`
+2. Validate Coverage
+   - Assert the depot and every station fall inside `network_bbox` — otherwise routing would silently snap to spurious nearest nodes
+3. Station Table
+   - Prepend `depot_start` and append `depot_end` (both at the depot coordinate, capacity NA) and assign integer `idx`
+4. Download & Calibrate Network
+   - `osmnx.graph_from_bbox(network_type="drive")`, add edge speeds, apply a Boston-calibrated speed adjustment, recompute travel times
+5. Routes for Every OD Pair
+   - Cross-join stations + depots into all origin/destination pairs (minus the diagonal); snap each endpoint to the nearest node; shortest path weighted by `travel_time`
+6. Geometry & Metrics
+   - Convert each node sequence to a LineString; sum edge `length` and `travel_time` into `dist_m` / `ttime_s`
+7. Save
+   - Distance/travel-time CSV, routes shapefile, route node-sequence JSON, and the station-information CSV
+
+**Key Algorithms**:
+- **Speed calibration**: a piecewise multiplier on OSM `speed_kph` (≥50 → ×0.85, 42–50 → ×0.65, 35–50 → ×0.55), tuned for Boston so travel times reflect real surface-street speeds
+- **Travel-time shortest paths**: routes minimize travel time, not raw distance
+- **Depot bracketing**: `depot_start` (idx 0) and `depot_end` (idx N+1) share the depot coordinate, framing the stations in the index
+
+**Technical Details**:
+- Network is `drive`, `simplify=True`, `truncate_by_edge=True`
+- Distance validation reprojects to NAD83 Massachusetts (EPSG:26986) and compares against summed edge length — region-specific, warned in the logs
+- Single-node routes (endpoints that snap to the same node) become zero-length LineStrings with 0 distance/time
+- The speed calibration and validation projection are Boston-specific; both emit warnings to retune elsewhere
+
+</details>
+
+---
+
+### Task 2: [prepare_initial_status](bluebikes_rebalancing/tasks/prepare_initial_status)
+
+Reduces the raw GBFS status snapshots into one initial-status file per day.
+
+<details>
+<summary><b>Details</b></summary>
+<br>
+
+**Processing Pipeline**:
+1. Station Mapping
+   - Join `stations_of_interest.json` → raw `station_information.csv` (`station_id` ↔ `short_name`) → processed station info (`idx`); unmatched stations are warned and dropped
+2. Date Range
+   - Expand `status_start_date` → `status_end_date` into daily timestamps
+3. Earliest Snapshot per Day
+   - Glob `station_status_*.csv`, parse the `<YYMMDD_HHMMSS>` timestamp, group by date, and pick the earliest file (closest to the start of the day)
+4. Per-Day Reduction
+   - Keep installed & renting stations (`is_installed == 1 & is_renting == 1`), merge the mapping, take `num_bikes_available` as `initial_status`
+5. Save
+   - `initial_status_<YYYYMMDD>.csv` (`idx`, `short_name`, `initial_status`), sorted by `idx`
+
+**Key Features**:
+- **Earliest-of-day selection**: the first snapshot each day approximates the overnight starting inventory
+- **Operational filter**: only installed and renting stations contribute
+- **Missing-day handling**: dates without a snapshot are logged and skipped, not zero-filled
+
+**Technical Details**:
+- Filenames are parsed as `station_status_<YYMMDD>_<HHMMSS>.csv`, with `20`+`YY` for the year
+- The mapping merge is an inner join on `station_id`, so only mapped stations of interest survive
+- `initial_status = num_bikes_available`
+
+</details>
+
+---
+
+### Task 3: [prepare_demand](bluebikes_rebalancing/tasks/prepare_demand)
+
+Converts the companion repo's per-station forecasts into one integer demand file per day.
+
+<details>
+<summary><b>Details</b></summary>
+<br>
+
+**Processing Pipeline**:
+1. Load Metadata
+   - Read the processed `station_information.csv` for the `short_name` → `idx` map
+2. Load Forecasts
+   - Glob `*_forecast.csv` under `timeseries_results/forecasts/<model_name>/`, parse `ds`, key by station
+3. Date Range
+   - Expand `demand_start_date` → `demand_end_date` into daily timestamps
+4. Per-Day Demand
+   - For each station take the row at `ds == target_date`; round `pickups_forecast` / `dropoffs_forecast` to integers and clamp negatives to 0; stations missing that date are warned
+5. Index & Save
+   - Merge `idx`, order `idx, station_id, pickups_forecast, dropoffs_forecast`, write `demand_<YYYYMMDD>.csv`
+
+**Key Features**:
+- **Forecast-source agnostic**: `model_name` selects the forecasts subdirectory (e.g. `prophet`)
+- **Integer, non-negative demand**: rounded and floored at 0 to feed the integer model
+- **Per-day files**: one file per date, matching the optimizer's `target_date` interface
+
+**Technical Details**:
+- Reads `<station_id>_forecast.csv` (Prophet `pickups_forecast` / `dropoffs_forecast`) from the companion project's outputs
+- Raises if a date has no station forecasts at all; warns and skips individual stations missing that date
+- Net demand `d_i = dropoffs − pickups` (and the target `t_i = c_i/2 − d_i`) is derived later inside the optimizer, not here
+
+</details>
+
+---
+
+### Task 4: [run_optimization](bluebikes_rebalancing/tasks/run_optimization)
+
+Builds and solves the multi-vehicle rebalancing MIQP for one target date, then writes metrics, station results, routes, and a map.
+
+<details>
+<summary><b>Details</b></summary>
+<br>
+
+**Processing Pipeline**:
+1. Load & Merge Inputs
+   - Station info + capacities, that date's initial status and demand, the distance/travel-time matrix and route geometries; set both depots' inventory/capacity to `Q`
+2. Build Model
+   - Assemble nodes/arcs and `b` / `c` / `t` (`t_i = c_i/2 − d_i`); call `build_vrp_model` (per-vehicle `x, u, v, w`; station-level `b_final, y, p`)
+3. Solve
+   - Hand the model to the configured solver (Gurobi) with the time limit, MIP gap, and thread count
+4. Extract
+   - Per-vehicle routes ordered from the depot, fleet-aggregated station operations, the objective breakdown (routing / service / deployment), time components, vehicles used, and MIP gap
+5. Save
+   - `parameters.json`, `results_metrics.json`, `results_stations.csv`, `route.csv` + shapefile, and the rebalancing map
+
+**Key Algorithms**:
+- **Multi-vehicle MIQP**: minimize α·distance + β·Σ(b_final − t)² + γ·(vehicles used), subject to routing, flow conservation, subtour elimination, per-vehicle load tracking, station buffers, per-vehicle time budgets, depot capacity, and symmetry breaking — full formulation in [`references/math_model.md`](references/math_model.md)
+- **Endogenous fleet size**: the per-vehicle deployment cost γ means a van is deployed only when its routing + service benefit beats γ
+- **Lifted Desrochers–Laporte MTZ**: tightens the LP relaxation versus basic MTZ (it forbids fractional two-station loops) without cutting any integer route
+- **Per-vehicle route map**: each van's legs drawn in its own color, with per-stop net operations and per-vehicle depot load/return labels
+
+**Technical Details**:
+- The quadratic deviation penalty makes this a MIQP (QP objective); depots are `depot_start` (node 0, inventory `Q`) and `depot_end` (node N+1, absorbs returns), with `S = depot_capacity` capping fleet sourcing/return
+- Per-vehicle load tracking uses node-indexed big-M; the time budget charges travel + per-stop service + per-bike handling, including the depot load and return
+- Setting `model_params.fleet_size: 1` (with `depot_capacity` = `truck_capacity`) reproduces the single-vehicle case closely
+- Results land under `rebalancing_results/results/<YYYYMMDD>/`
+
+</details>
+
+<br>
+
+## 👥 Contributors
+<!-- Add one entry per contributor:
+<a href="https://github.com/USERNAME"><img src="https://github.com/USERNAME.png" width="60" height="60" alt="USERNAME"/></a>
+-->
+<a href="https://github.com/jcruz-ferreyra"><img src="https://github.com/jcruz-ferreyra.png?size=120" width="60" height="60" alt="jcruz-ferreyra"/></a>
+
+<br>
+
+## Additional Resources
+
+### Related Technologies
+
+- **[Pyomo](http://www.pyomo.org/)** - Algebraic modeling language used to build the MIQP
+- **[Gurobi](https://www.gurobi.com/)** - Default MIP/MIQP solver (swap via `solver_params.factory`)
+- **[OSMnx](https://osmnx.readthedocs.io/) / [OpenStreetMap](https://www.openstreetmap.org/)** - Driving-network download and shortest-path routing
+- **[GeoPandas](https://geopandas.org/) / [Shapely](https://shapely.readthedocs.io/)** - Route geometries and spatial outputs
+- **[contextily](https://contextily.readthedocs.io/)** - Basemap tiles for the rebalancing map
+- **[Hydra](https://hydra.cc/)** - Config composition, CLI overrides, and multirun sweeps
+- **[pixi](https://pixi.sh/)** - conda-forge environment and task runner
+- **[Cookiecutter Data Science](https://cookiecutter-data-science.drivendata.org/)** - Project template this layout is based on
+
+### Support
+
+For questions or issues:
+- **GitHub Issues**: [bluebikes_rebalancing/issues](https://github.com/jcruz-ferreyra/bluebikes_rebalancing/issues)
+
+### Citation
+
+If you use this optimizer in your research, please cite:
+```bibtex
+@software{bluebikes_rebalancing_2026,
+  title       = {BlueBikes Rebalancing: Multi-Vehicle Station Rebalancing Optimization for Boston Bike-Share},
+  author      = {Ferreyra, Juan Cruz},
+  institution = {Northeastern University},
+  year        = {2026},
+  url         = {https://github.com/jcruz-ferreyra/bluebikes_rebalancing}
+}
+```
+
+### License
+
+MIT License - see [LICENSE](LICENSE) file for details.
